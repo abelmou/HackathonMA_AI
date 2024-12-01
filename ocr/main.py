@@ -100,23 +100,25 @@ class AzureStorageManager:
 class LLaMaTextCorrector:
     @staticmethod
     def correct_text(ocr_text):
-        """Use OpenAI API to correct and structure OCR text."""
-        chat_history = [{"role": "user", "content":
-            f"""
-            You are a professional medical prescription assistant.
-            Extract and structure medical prescription information precisely from the following text:
+        """Use LLaMa to correct and structure OCR text."""
+        chat_history = [
+            {"role": "system", "content": "You are a professional medical prescription assistant."},
+            {"role": "user", "content": f"""
+                Please analyze the following text carefully and provide the following details in a structured format:
 
-            {ocr_text}
+                - Doctor's Name
+                - Patient's Name
+                - Date of Prescription
+                - Medicines:
+                * Name
+                * Dosage
+                * Instructions
 
-            Provide a clean, structured output with:
-            - Doctor's Name
-            - Patient Name
-            - Date of Prescription
-            - Medicines:
-            * Name
-            * Dosage
-            * Instructions
-            """}]
+                Here is the text to analyze:
+                {ocr_text}
+            """}
+        ]
+
         try:
             answer = ollama.chat(model="llama3.2", messages=chat_history, stream=True)
 
