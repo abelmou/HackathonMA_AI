@@ -162,7 +162,7 @@ def main():
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
     else:
-        st.info("Please enter a question to get started.")
+        st.info("دخل سؤال باش تبدا")
 
 
 if __name__ == "__main__":
