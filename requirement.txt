@@ -1,0 +1,13 @@
+chainlit
+langchain
+pydantic==2.10.1
+litellm
+qdrant-client
+ollama
+langchain-community
+sentence-transformers
+xmltodict
+pypdf
+sacremoses
+streamlit
+opencv-python
