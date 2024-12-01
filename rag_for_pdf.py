@@ -96,8 +96,8 @@ def main():
     # question = "What questions should I ask the patient based on this document?"
     # question = "What are the key medical terms or diagnoses mentioned in the document?"
     # question = "What medications or treatments are prescribed, including their dosages?"
-    question = "What are the main points as a healthcare assistant I should be aware of?"
-    # question = "What steps should the healthcare assistant take based on the document's recommendations?"
+    # question = "What are the main points as a healthcare assistant I should be aware of?"
+    question = "What steps should the healthcare assistant take based on the document's recommendations?"
 
     # Get the response
     res = chain.invoke(input=question)
