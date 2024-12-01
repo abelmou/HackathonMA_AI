@@ -118,8 +118,13 @@ class LLaMaTextCorrector:
             * Instructions
             """}]
         try:
-            response = ollama.chat(model="llama3.2", messages=chat_history, stream=True)
-            corrected_text = response.choices[0].text.strip()
+            answer = ollama.chat(model="llama3.2", messages=chat_history, stream=True)
+
+            corrected_text = ""
+            for token_dict in answer:
+                token = token_dict["message"]["content"]
+                corrected_text += token
+
             return corrected_text
         except Exception as e:
             st.error(f"LLaMa Error: {e}")
