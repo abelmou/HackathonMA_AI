@@ -5,155 +5,157 @@ import pytesseract
 from PIL import Image
 import tempfile
 import os
-import uuid  
+import uuid
 import fitz
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
-import openai
+from azure.storage.blob import BlobServiceClient
+import subprocess
+import threading
+import openai  # Import OpenAI SDK
 
-# Azure Storage credentials
-connection_string = "**"
-container_name = "store"
+# Configuration and Credentials
+CONNECTION_STRING = "BlobEndpoint=https://jhjfsdb.blob.core.windows.net/;QueueEndpoint=https://jhjfsdb.queue.core.windows.net/;FileEndpoint=https://jhjfsdb.file.core.windows.net/;TableEndpoint=https://jhjfsdb.table.core.windows.net/;SharedAccessSignature=sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-11-30T07:56:49Z&st=2024-11-29T23:56:49Z&spr=https,http&sig=6l9g7%2BATRsEjE3WuomwYYxBw3zyplw2W%2ByOtZ9HRWaM%3D"
+CONTAINER_NAME = "store"
+OPENAI_API_KEY = "your-openai-api-key"  # Your OpenAI API key
+openai.api_key = OPENAI_API_KEY
 
-# Initialize the BlobServiceClient
-blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-container_client = blob_service_client.get_container_client(container_name)
+class ImageProcessor:
+    @staticmethod
+    def preprocess_image(image_path):
+        """Preprocess image for better OCR accuracy."""
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, processed = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)
+        return processed
 
-# OpenAI API key
-openai.api_key = '**'  
+    @staticmethod
+    def extract_text(image_path):
+        """Extract text from preprocessed image using Tesseract."""
+        image = ImageProcessor.preprocess_image(image_path)
+        text = pytesseract.image_to_string(image, lang="ara+eng+fra")
+        return text
 
-# Function to preprocess the image
-def preprocess_image(image_path):
-    image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, processed = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)
-    return processed
+    @staticmethod
+    def extract_images_from_pdf(pdf_path):
+        """Extract images from PDF."""
+        doc = fitz.open(pdf_path)
+        images = []
+        for page_number in range(len(doc)):
+            pix = doc[page_number].get_pixmap(dpi=300)
+            image_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+            if image_array.shape[2] == 4:
+                image_array = cv2.cvtColor(image_array, cv2.COLOR_RGBA2RGB)
+            images.append(image_array)
+        return images
 
-# Function to extract text using pytesseract
-def extract_text(image_path):
-    image = preprocess_image(image_path)
-    text = pytesseract.image_to_string(image, lang="ara+eng+fra")
-    return text
+class AzureStorageManager:
+    def _init_(self, connection_string, container_name):
+        """Initialize Azure Blob Storage client."""
+        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        self.container_client = self.blob_service_client.get_container_client(container_name)
 
-# Function to extract images from a PDF
-def extract_images_from_pdf(pdf_path):
-    doc = fitz.open(pdf_path)
-    images = []
-    for page_number in range(len(doc)):
-        pix = doc[page_number].get_pixmap(dpi=300)
-        image_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        if image_array.shape[2] == 4:
-            image_array = cv2.cvtColor(image_array, cv2.COLOR_RGBA2RGB)
-        images.append(image_array)
-    return images
+    def upload_file(self, file_path):
+        """Upload file to Azure Blob Storage."""
+        try:
+            blob_client = self.container_client.get_blob_client(os.path.basename(file_path))
+            with open(file_path, "rb") as data:
+                blob_client.upload_blob(data, overwrite=True)
+            return True
+        except Exception as e:
+            st.error(f"Azure Upload Error: {e}")
+            return False
 
-# Function to correct extracted text using OpenAI
-def correct_text(input_text):
-    """
-    Correct and structure OCR-extracted healthcare text using OpenAI GPT model.
-    """
-    try:
-        response = openai.Completion.create(
-            model="gpt-3.5-turbo",  # or "gpt-4" for more advanced models
-            prompt=f"Correct and format the following healthcare OCR text with proper structure:\n\n{input_text}",
-            max_tokens=500,
-            temperature=0.5,
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presence_penalty=0.0,
-        )
+class OpenAITextCorrector:
+    @staticmethod
+    def correct_text(ocr_text):
+        """Use OpenAI API to correct and structure OCR text."""
+        prompt = f"""
+        You are a professional medical prescription assistant.
+        Extract and structure medical prescription information precisely from the following text:
 
-        # Accessing the corrected text from the response
-        corrected_text = response['choices'][0]['text']
-        return corrected_text
-    except Exception as e:
-        return f"Error in text correction: {e}"
+        {ocr_text}
 
-# Apply custom styles
-st.markdown(
-    """
-    <style>
-        body { background-color: #f8faff; }
-        .main { background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); }
-        h1, h2, h3 { color: #0056b3; }
-        h1 { text-align: center; font-size: 2.5rem; }
-        h2 { text-align: center; font-size: 1.8rem; }
-        h3 { font-size: 1.3rem; }
-        p { text-align: center; color: #6c757d; font-size: 1rem; }
-        textarea { font-family: "Courier New", monospace; font-size: 1rem; color: #333; }
-        div[data-testid="stFileUploader"] > label { font-size: 1.2rem; color: #0056b3; }
-        .stButton > button { background-color: #0056b3; color: white; font-weight: bold; font-size: 1rem; border-radius: 5px; }
-        .stButton > button:hover { background-color: #003d80; }
-        .success { color: #28a745; font-weight: bold; }
-        .error { color: #dc3545; font-weight: bold; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+        Provide a clean, structured output with:
+        - Doctor's Name
+        - Patient Name
+        - Date of Prescription
+        - Medicines:
+          * Name
+          * Dosage
+          * Instructions
+        """
+        try:
+            response = openai.Completion.create(
+                model="gpt-4",  # You can also use "text-davinci-003" for cheaper options
+                prompt=prompt,
+                max_tokens=1000,
+                temperature=0.5
+            )
+            corrected_text = response.choices[0].text.strip()
+            return corrected_text
+        except Exception as e:
+            st.error(f"OpenAI API Error: {e}")
+            return ""
 
-# Display Logo and App Title
-st.image("images.jpg", width=150, caption="Se7ty Healthcare App", use_column_width=False)
-st.markdown("<h1>Se7ty Healthcare App</h1>", unsafe_allow_html=True)
-st.markdown("<p>Easily process and save your ordonnance (prescription).</p>", unsafe_allow_html=True)
+def main():
+    # Streamlit UI Configuration
+    st.set_page_config(page_title="Se7ty Healthcare App", page_icon="🩺")
+    st.image("images.jpg", width=150, caption="Se7ty Healthcare App", use_column_width=False)
+    st.markdown("<h1>Se7ty Healthcare App</h1>", unsafe_allow_html=True)
+    st.markdown("<p>Easily process and save your ordonnance (prescription).</p>", unsafe_allow_html=True)
 
-# File uploader for images or PDFs
-uploaded_file = st.file_uploader("Upload an Image or PDF", type=["jpg", "jpeg", "png", "pdf"])
-use_camera = st.checkbox("Take a Photo with Your Camera")
+    # File Upload
+    uploaded_file = st.file_uploader("Upload an Image or PDF", type=["jpg", "jpeg", "png", "pdf"])
+    use_camera = st.checkbox("Take a Photo with Your Camera")
+    image_to_process = None
 
-image_to_process = None
-
-if uploaded_file:
-    file_type = uploaded_file.type
-    if file_type == "application/pdf":
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
-            temp_pdf.write(uploaded_file.read())
-            pdf_images = extract_images_from_pdf(temp_pdf.name)
-        if pdf_images:
-            image_to_process = pdf_images[0]
-            st.image(image_to_process, caption="First Page of Uploaded PDF", use_column_width=True)
+    if uploaded_file:
+        file_type = uploaded_file.type
+        if file_type == "application/pdf":
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+                temp_pdf.write(uploaded_file.read())
+                pdf_images = ImageProcessor.extract_images_from_pdf(temp_pdf.name)
+            if pdf_images:
+                image_to_process = pdf_images[0]
+                st.image(image_to_process, caption="First Page of Uploaded PDF", use_column_width=True)
         else:
-            st.error("No images found in the PDF.")
-    else:
-        image_to_process = np.array(Image.open(uploaded_file))
-        st.image(image_to_process, caption="Uploaded Ordonnance", use_column_width=True)
+            image_to_process = np.array(Image.open(uploaded_file))
+            st.image(image_to_process, caption="Uploaded Ordonnance", use_column_width=True)
 
-elif use_camera:
-    picture = st.camera_input("Capture your Ordonnance")
-    if picture:
-        image_to_process = np.array(Image.open(picture))
-        st.image(image_to_process, caption="Captured Ordonnance", use_column_width=True)
+    elif use_camera:
+        picture = st.camera_input("Capture your Ordonnance")
+        if picture:
+            image_to_process = np.array(Image.open(picture))
+            st.image(image_to_process, caption="Captured Ordonnance", use_column_width=True)
 
-if image_to_process is not None:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp:
-        temp_image_path = temp.name
-        cv2.imwrite(temp_image_path, cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+    if image_to_process is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp:
+            temp_image_path = temp.name
+            cv2.imwrite(temp_image_path, cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
 
-    preprocessed_image = preprocess_image(temp_image_path)
-    st.image(preprocessed_image, caption="Preprocessed Ordonnance", channels="GRAY")
+        preprocessed_image = ImageProcessor.preprocess_image(temp_image_path)
+        st.image(preprocessed_image, caption="Preprocessed Ordonnance", channels="GRAY")
 
-    # Extract text
-    st.markdown("<h3>Recognized Text:</h3>", unsafe_allow_html=True)
-    recognized_text = extract_text(temp_image_path)
-    st.text_area("Extracted Ordonnance Text", recognized_text, height=200)
+        # Text Extraction
+        recognized_text = ImageProcessor.extract_text(temp_image_path)
+        st.text_area("Extracted Ordonnance Text", recognized_text, height=200)
 
-    # Correct the extracted text
-    st.markdown("<h3>Corrected Text:</h3>", unsafe_allow_html=True)
-    corrected_text = correct_text(recognized_text)
-    st.text_area("Corrected Text", corrected_text, height=200)
+        # Correct Text using OpenAI
+        corrected_text = OpenAITextCorrector.correct_text(recognized_text)
+        st.text_area("Structured Prescription Details", corrected_text, height=300)
 
-    # Save corrected text to a file
-    random_file_name = f"corrected_ordonnance_{uuid.uuid4().hex}.txt"
-    with open(random_file_name, "w", encoding="utf-8") as file:
-        file.write(corrected_text)
+        # Save Corrected Text
+        random_file_name = f"corrected_ordonnance_{uuid.uuid4().hex}.txt"
+        with open(random_file_name, "w", encoding="utf-8") as file:
+            file.write(corrected_text)
 
-    st.markdown(f"<p class='success'>Corrected text saved to `{random_file_name}`.</p>", unsafe_allow_html=True)
+        # Azure Storage Upload
+        azure_manager = AzureStorageManager(CONNECTION_STRING, CONTAINER_NAME)
+        if azure_manager.upload_file(random_file_name):
+            st.success(f"Prescription details saved and uploaded to Azure: {random_file_name}")
 
-    # Upload the corrected text to Azure
-    try:
-        blob_client = container_client.get_blob_client(random_file_name)
-        with open(random_file_name, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
-        st.markdown(f"<p class='success'>File `{random_file_name}` uploaded successfully to Azure.</p>", unsafe_allow_html=True)
-    except Exception as e:
-        st.markdown(f"<p class='error'>Error uploading file to Azure. Please try again. Error: {e}</p>", unsafe_allow_html=True)
+        # Clean up temporary files
+        os.remove(temp_image_path)
+        os.remove(random_file_name)
 
-    os.remove(temp_image_path)
+if __name__ == "__main__":
+    main()
