@@ -102,20 +102,23 @@ class LLaMaTextCorrector:
     def correct_text(ocr_text):
         """Use LLaMa to correct and structure OCR text."""
         chat_history = [
-            {"role": "system", "content": "You are a professional medical prescription assistant. You should Answer !"},
+            {"role": "system", "content": """You are a professional medical prescription assistant.
+            You should always answer the question, no matter the quality of the input text.
+            Make sure to structure your answer clearly and provide all the requested details !"""},
             {"role": "user", "content": f"""
-                Please analyze the following text carefully and provide the following details in a structured format:
+            You should Answer ! even if not well !
+            Please analyze the following text carefully and provide the following details in a structured format:
 
-                - Doctor's Name
-                - Patient's Name
-                - Date of Prescription
-                - Medicines:
-                * Name
-                * Dosage
-                * Instructions
+            - Doctor's Name
+            - Patient's Name
+            - Date of Prescription
+            - Medicines:
+            * Name
+            * Dosage
+            * Instructions
 
-                Here is the text to analyze:
-                {ocr_text}
+            Here is the text to analyze:
+            {ocr_text}
             """}
         ]
 
