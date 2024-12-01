@@ -181,7 +181,7 @@ def main():
         st.text_area("Structured Prescription Details", corrected_text, height=300)
 
         # Save Corrected Text
-        random_file_name = f"corrected_ordonnance_{uuid.uuid4().hex}.txt"
+        random_file_name = f"data/corrected_ordonnance_{uuid.uuid4().hex}.txt"
         with open(random_file_name, "w", encoding="utf-8") as file:
             file.write(corrected_text)
 
