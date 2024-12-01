@@ -73,23 +73,23 @@ def split_documents(documents):
 @st.cache_resource
 def load_vector_db():
     embedding = OllamaEmbeddings(model="nomic-embed-text")
-    if os.path.exists(PERSIST_DIRECTORY):
+    if os.path.exists("./chroma_db"):
         vector_db = Chroma(
             embedding_function=embedding,
-            collection_name=VECTOR_STORE_NAME,
-            persist_directory=PERSIST_DIRECTORY,
+            collection_name="simple-rag",
+            persist_directory="./chroma_db",
         )
         logging.info("Loaded existing vector database.")
     else:
-        data = ingest_pdf(DOC_PATH)
+        data = ingest_pdf(pdf_doc)
         if data is None:
             return None
         chunks = split_documents(data)
         vector_db = Chroma.from_documents(
             documents=chunks,
             embedding=embedding,
-            collection_name=VECTOR_STORE_NAME,
-            persist_directory=PERSIST_DIRECTORY,
+            collection_name="simple-rag",
+            persist_directory="./chroma_db",
         )
         vector_db.persist()
         logging.info("Vector database created and persisted.")
@@ -133,8 +133,8 @@ Question: {question}
 
 
 def main():
-    st.title("Document Assistant")
-    user_input = st.text_input("Enter your question:", "")
+    st.title("مساعدك فالوثائق")
+    user_input = st.text_input(":دخل سؤال", "")
 
     print("Translating Darija input to English...")
     english_query = translate_darija_to_english(user_input)
@@ -143,7 +143,7 @@ def main():
     if english_query:
         with st.spinner("Generating response..."):
             try:
-                llm = ChatOllama(model=MODEL_NAME)
+                llm = ChatOllama(model="llama3.2")
 
                 vector_db = load_vector_db()
                 if vector_db is None:
