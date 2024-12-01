@@ -11,6 +11,7 @@ from azure.storage.blob import BlobServiceClient
 import subprocess
 import threading
 # import openai  # Import OpenAI SDK
+import ollama
 
 # Configuration and Credentials
 CONNECTION_STRING = "BlobEndpoint=https://jhjfsdb.blob.core.windows.net/;QueueEndpoint=https://jhjfsdb.queue.core.windows.net/;FileEndpoint=https://jhjfsdb.file.core.windows.net/;TableEndpoint=https://jhjfsdb.table.core.windows.net/;SharedAccessSignature=sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-11-30T07:56:49Z&st=2024-11-29T23:56:49Z&spr=https,http&sig=6l9g7%2BATRsEjE3WuomwYYxBw3zyplw2W%2ByOtZ9HRWaM%3D"
