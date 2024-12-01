@@ -104,9 +104,10 @@ class LLaMaTextCorrector:
         chat_history = [
             {"role": "system", "content": """You are a professional medical prescription assistant.
             You should always answer the question, no matter the quality of the input text.
-            Make sure to structure your answer clearly and provide all the requested details !"""},
+            Make sure to structure your answer clearly and provide all the requested details !
+            Don't give answers like : I can't help with that. Is there anything else I can help you with?"""},
             {"role": "user", "content": f"""
-            You should Answer ! even if not well !
+            You should Answer No Matter what ! Even if it is not well !
             Please analyze the following text carefully and provide the following details in a structured format:
 
             - Doctor's Name
