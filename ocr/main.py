@@ -101,21 +101,22 @@ class LLaMaTextCorrector:
     @staticmethod
     def correct_text(ocr_text):
         """Use OpenAI API to correct and structure OCR text."""
-        prompt = f"""
-        You are a professional medical prescription assistant.
-        Extract and structure medical prescription information precisely from the following text:
+        chat_history = [{"role": "user", "content":
+            f"""
+            You are a professional medical prescription assistant.
+            Extract and structure medical prescription information precisely from the following text:
 
-        {ocr_text}
+            {ocr_text}
 
-        Provide a clean, structured output with:
-        - Doctor's Name
-        - Patient Name
-        - Date of Prescription
-        - Medicines:
-          * Name
-          * Dosage
-          * Instructions
-        """
+            Provide a clean, structured output with:
+            - Doctor's Name
+            - Patient Name
+            - Date of Prescription
+            - Medicines:
+            * Name
+            * Dosage
+            * Instructions
+            """}]
         try:
             response = ollama.chat(model="llama3.2", messages=prompt, stream=True)
             corrected_text = response.choices[0].text.strip()
