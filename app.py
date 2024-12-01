@@ -3,8 +3,10 @@ import ollama
 import chainlit as cl
 
 # English -> Darija
-english_darija_tokenizer = AutoTokenizer.from_pretrained("atlasia/Terjman-Nano")
-english_darija_model = AutoModelForSeq2SeqLM.from_pretrained("atlasia/Terjman-Nano")
+english_darija_tokenizer = AutoTokenizer.from_pretrained("atlasia/Terjman-Ultra")
+english_darija_model = AutoModelForSeq2SeqLM.from_pretrained("atlasia/Terjman-Ultra")
+# english_darija_tokenizer = AutoTokenizer.from_pretrained("atlasia/Terjman-Nano")
+# english_darija_model = AutoModelForSeq2SeqLM.from_pretrained("atlasia/Terjman-Nano")
 
 # Darija -> Arabic
 darija_arabic_tokenizer = AutoTokenizer.from_pretrained("Saidtaoussi/AraT5_Darija_to_MSA")
