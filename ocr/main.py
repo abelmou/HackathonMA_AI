@@ -167,7 +167,8 @@ def main():
         st.text_area("Extracted Ordonnance Text", recognized_text, height=200)
 
         # Correct Text using OpenAI
-        corrected_text = OpenAITextCorrector.correct_text(recognized_text)
+        # corrected_text = OpenAITextCorrector.correct_text(recognized_text)
+        corrected_text = LLaMaTextCorrector.correct_text(recognized_text)
         st.text_area("Structured Prescription Details", corrected_text, height=300)
 
         # Save Corrected Text
